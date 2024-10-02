@@ -1,18 +1,26 @@
 import os
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import StreamingResponse, JSONResponse
 import httpx
+from typing import Optional
 
 
 app = FastAPI()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("Необходимо установить переменную окружения OPENAI_API_KEY")
-
 
 @app.post("/v1/chat/completions")
-async def proxy_chat_completion(request: Request):
+async def proxy_chat_completion(
+        request: Request,
+        authorization: Optional[str] = Header(None)
+):
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Отсутствует заголовок Authorization или он некорректен.")
+
+    OPENAI_API_KEY = authorization.split("Bearer ")[-1].strip()
+
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=401, detail="OPENAI_API_KEY не может быть пустым.")
+
     body = await request.json()
 
     if "model" not in body:
